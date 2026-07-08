@@ -22,6 +22,6 @@ function prompt_setup() {
     local sh_in_use="%F{blue}(zsh)%f"
 
     PROMPT="${user}${at}${host}:${rpwd} %F{cyan}\$(git_ps1)%f ${datetime} ${sh_in_use}
-\$ "
+$ "
 }
 prompt_setup

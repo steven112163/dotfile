@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # Sourced from ~/.zshrc to load this dotfile repo's zsh configuration
 
-source "$(dirname "${(%):-%N}")/../inc/base.sh"
+source "$(dirname "${(%):-%N}")/../inc/base.sh" || return
 source "$DOTFILE_ROOT/inc/settings.sh"
 source "$DOTFILE_ROOT/inc/zsh/statusbar.zsh"
 source "$DOTFILE_ROOT/inc/zsh/completion.zsh"

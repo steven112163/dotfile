@@ -1,5 +1,6 @@
-#!/usr/bin/env sh
-# Shell-agnostic base: resolves DOTFILE_ROOT and SHELL_NAME for bash and zsh
+#!/bin/bash
+# Resolves DOTFILE_ROOT and SHELL_NAME; the zsh branch below is only live when
+# this file is sourced from a zsh startup file (bash never evaluates it).
 
 if [ -n "$ZSH_VERSION" ]; then
     DOTFILE_ROOT="$(cd "$(dirname "${(%):-%N}")/.." && pwd)"

@@ -1,10 +1,10 @@
 #!/bin/bash
 # Settings
 
-source $DOTFILE_ROOT/inc/aliases.sh
+source "$DOTFILE_ROOT/inc/aliases.sh"
 
-export PATH=$HOME/bin:$HOME/local/bin:$HOME/.local/bin:$PATH
-export VIM_BIN=/usr/bin/vim
+export PATH="$HOME/bin:$HOME/local/bin:$HOME/.local/bin:$PATH"
+export VIM_BIN="$(command -v vim || echo /usr/bin/vim)"
 export EDITOR=$VIM_BIN
 export SVN_EDITOR=$EDITOR
 export VISUAL=$VIM_BIN

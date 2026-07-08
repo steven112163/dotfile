@@ -1,5 +1,5 @@
-#!/bin/bash
-# prettfy PROMPT in zsh
+#!/usr/bin/env zsh
+# prettify PROMPT in zsh
 
 setopt PROMPT_SUBST
 

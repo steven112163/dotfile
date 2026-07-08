@@ -1,8 +1,8 @@
 #!/bin/bash
 # Sourced from ~/.bashrc to load this dotfile repo's bash configuration
 
-source $DOTFILE_ROOT/inc/base.sh
-source $DOTFILE_ROOT/inc/settings.sh
-source $DOTFILE_ROOT/inc/bash/statusbar.bash
+source "$(dirname "${BASH_SOURCE[0]}")/../inc/base.sh"
+source "$DOTFILE_ROOT/inc/settings.sh"
+source "$DOTFILE_ROOT/inc/bash/statusbar.bash"
 
 [ -f "$DOTFILE_ROOT/inc/local.sh" ] && source "$DOTFILE_ROOT/inc/local.sh"

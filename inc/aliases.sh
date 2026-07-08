@@ -3,7 +3,7 @@
 
 # Common aliases
 alias al='alias'
-alias aliasrc="vim $DOTFILE_ROOT/inc/aliases.sh"
+alias aliasrc="vim \"$DOTFILE_ROOT/inc/aliases.sh\""
 
 # Add common parameter
 alias mv='mv -i'
@@ -35,12 +35,12 @@ alias k9='kill -9'
 alias rm-rf='rm -rf'
 
 # rc aliases
-alias so="source $HOME/.${SHELL_NAME}rc"
-alias so.tmux="tmux source $HOME/.tmux.conf"
-alias shrc="vim $HOME/.${SHELL_NAME}rc"
-alias vimrc="vim $HOME/.vimrc"
-alias gvimrc="gvim $HOME/.gvimrc"
-alias tmuxrc="vim $HOME/.tmux.conf"
+alias so="source \"$HOME/.${SHELL_NAME}rc\""
+alias so.tmux="tmux source \"$HOME/.tmux.conf\""
+alias shrc="vim \"$HOME/.${SHELL_NAME}rc\""
+alias vimrc="vim \"$HOME/.vimrc\""
+alias gvimrc="gvim \"$HOME/.gvimrc\""
+alias tmuxrc="vim \"$HOME/.tmux.conf\""
 
 # python aliases
 alias py=python

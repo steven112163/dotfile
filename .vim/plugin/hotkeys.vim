@@ -1,5 +1,3 @@
-map <C-p> :FZF<CR>
-
 " buffer
 map T :bnext<CR>
 "map P :bp<CR>

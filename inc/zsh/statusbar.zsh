@@ -13,12 +13,15 @@ function git_ps1() {
     fi
 }
 
-user="%F{red}%n%f"
-host="%F{yellow}%m%f"
-rpwd="%F{green}%~%f"
-datetime="%F{magenta}[%D{%H:%M:%S} %D{%Y/%m/%d}]%f"
-at="%F{white}@%f"
-sh_in_use="%F{blue}(zsh)%f"
+function prompt_setup() {
+    local user="%F{red}%n%f"
+    local host="%F{yellow}%m%f"
+    local rpwd="%F{green}%~%f"
+    local datetime="%F{magenta}[%D{%H:%M:%S} %D{%Y/%m/%d}]%f"
+    local at="%F{white}@%f"
+    local sh_in_use="%F{blue}(zsh)%f"
 
-PROMPT='${user}${at}${host}:${rpwd} %F{cyan}$(git_ps1)%f ${datetime} ${sh_in_use}
-$ '
+    PROMPT="${user}${at}${host}:${rpwd} %F{cyan}\$(git_ps1)%f ${datetime} ${sh_in_use}
+\$ "
+}
+prompt_setup

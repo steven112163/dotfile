@@ -10,3 +10,5 @@ docs/
 tmp/
 plans/
 notes/
+
+inc/local.sh

@@ -52,20 +52,3 @@ alias tl='tmux ls'
 alias tn='tmux new -s'
 alias ta='tmux attach'
 alias tat='tmux attach -t'
-
-# Analyzer
-alias analyzer='analyzer --jdkhome /depot/java-1.8.0_45/'
-
-# Scratch spaces
-alias ss='py3 $HOME/useful_script/scheckspace.py'
-
-# Uncompress zcui.work: un <zcui.work> UNCOMPRESS
-alias un='/u/regress/INFRA_HOME/infra_tools/bench/ZEBU_scripts/compress.pl'
-
-# zTopBuild -> zCoreBuild -> zPar -> zTime
-#alias tot='zTopBuild zTopBuild.tcl; make -f zTopBuild.mk; zTime zTime_zcui.tcl'
-alias tot='py $HOME/useful_script/ztb_2_ztime.py'
-alias cb='py3 $HOME/useful_script/backend-compiler/compileBackend.py'
-
-# Run zTopBuild multiple times
-alias ztm='py $HOME/useful_script/ztb_multiple.py'

@@ -1,0 +1,12 @@
+.claude/
+.venv/
+.codex/
+CLAUDE.md
+
+__pycache__/
+*.pyc
+
+docs/
+tmp/
+plans/
+notes/

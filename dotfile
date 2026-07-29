@@ -1,0 +1,134 @@
+#!/bin/bash
+# Entry point: patch/install/config/status/uninstall this repo into the shell environment
+
+set -euo pipefail
+
+DOTFILE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export DOTFILE_ROOT
+
+source "$DOTFILE_ROOT/inc/patch.sh"
+source "$DOTFILE_ROOT/inc/install.sh"
+source "$DOTFILE_ROOT/inc/config.sh"
+
+usage() {
+    cat <<'EOF'
+Usage: dotfile [subcommand] [--target-root <path>] [--dry-run]
+
+Subcommands:
+  patch      Append source lines into .bashrc/.zshrc/.vimrc/.tmux.conf
+  install    Install vim-plug and tmux TPM
+  config     Apply git and vim-plug configuration
+  status     Report patch/install status
+  uninstall  Remove patched blocks (does not remove vim-plug/TPM)
+  all        Run patch, then install, then config (default)
+
+Flags:
+  --target-root <path>  Operate against <path> instead of $HOME (for testing)
+  --dry-run             Show what patch/uninstall would change, without writing
+EOF
+}
+
+run_patch() {
+    patch_shell_rc bash
+    patch_shell_rc zsh
+    patch_vim_rc
+    patch_tmux_rc
+}
+
+run_uninstall() {
+    unpatch_shell_rc bash
+    unpatch_shell_rc zsh
+    unpatch_vim_rc
+    unpatch_tmux_rc
+}
+
+run_install() {
+    install_vim_plug
+    install_tmux_tpm
+}
+
+run_config() {
+    config_git_vim_diff
+    config_git_core_editor
+    config_git_cache_timeout
+    config_vim_plug
+}
+
+run_status() {
+    local root="${TARGET_ROOT:-$HOME}"
+    local shell rc
+    for shell in bash zsh; do
+        rc="$(get_shell_rc_path "$shell")"
+        if grep -qF -- "$DOTFILE_MARKER_BEGIN" "$rc" 2>/dev/null; then
+            echo "$rc: patched"
+        else
+            echo "$rc: unpatched"
+        fi
+    done
+    for rc in "$root/.vimrc" "$root/.tmux.conf"; do
+        if grep -qF -- "$DOTFILE_MARKER_BEGIN" "$rc" 2>/dev/null; then
+            echo "$rc: patched"
+        else
+            echo "$rc: unpatched"
+        fi
+    done
+
+    if [ -f "$root/.vim/autoload/plug.vim" ]; then
+        echo "vim-plug: installed"
+    else
+        echo "vim-plug: missing"
+    fi
+    if [ -f "$root/.tmux/plugins/tpm/tpm" ]; then
+        echo "tmux TPM: installed"
+    else
+        echo "tmux TPM: missing"
+    fi
+}
+
+SUBCOMMAND="all"
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+    SUBCOMMAND="$1"
+    shift
+fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --target-root)
+            TARGET_ROOT="$2"
+            export TARGET_ROOT
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            export DRY_RUN
+            shift
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "dotfile: unknown flag '$1'" >&2
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+case "$SUBCOMMAND" in
+    patch) run_patch ;;
+    install) run_install ;;
+    config) run_config ;;
+    status) run_status ;;
+    uninstall) run_uninstall ;;
+    all)
+        run_patch
+        run_install
+        run_config
+        ;;
+    *)
+        echo "dotfile: unknown subcommand '$SUBCOMMAND'" >&2
+        usage
+        exit 1
+        ;;
+esac

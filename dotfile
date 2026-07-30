@@ -33,29 +33,37 @@ EOF
 }
 
 run_patch() {
-    patch_shell_rc bash
-    patch_shell_rc zsh
-    patch_vim_rc
-    patch_tmux_rc
+    local status=0
+    patch_shell_rc bash || status=1
+    patch_shell_rc zsh || status=1
+    patch_vim_rc || status=1
+    patch_tmux_rc || status=1
+    return "$status"
 }
 
 run_uninstall() {
-    unpatch_shell_rc bash
-    unpatch_shell_rc zsh
-    unpatch_vim_rc
-    unpatch_tmux_rc
+    local status=0
+    unpatch_shell_rc bash || status=1
+    unpatch_shell_rc zsh || status=1
+    unpatch_vim_rc || status=1
+    unpatch_tmux_rc || status=1
+    return "$status"
 }
 
 run_install() {
-    install_vim_plug
-    install_tmux_tpm
+    local status=0
+    install_vim_plug || status=1
+    install_tmux_tpm || status=1
+    return "$status"
 }
 
 run_config() {
-    config_git_vim_diff
-    config_git_core_editor
-    config_git_cache_timeout
-    config_vim_plug
+    local status=0
+    config_git_vim_diff || status=1
+    config_git_core_editor || status=1
+    config_git_cache_timeout || status=1
+    config_vim_plug || status=1
+    return "$status"
 }
 
 run_status() {
@@ -63,10 +71,10 @@ run_status() {
     local shell rc
     for shell in bash zsh; do
         rc="$(get_shell_rc_path "$shell")"
-        is_patched "$rc" && echo "$rc: patched" || echo "$rc: unpatched"
+        echo "$rc: $(_marker_state "$rc")"
     done
     for rc in "$root/.vimrc" "$root/.tmux.conf"; do
-        is_patched "$rc" && echo "$rc: patched" || echo "$rc: unpatched"
+        echo "$rc: $(_marker_state "$rc")"
     done
 
     is_vim_plug_installed && echo "vim-plug: installed" || echo "vim-plug: missing"
@@ -128,7 +136,7 @@ fi
 if [ "$dry_run" = 1 ]; then
     case "$subcommand" in
         install | config | all)
-            echo "dotfile: --dry-run has no effect on 'install'/'config' (real network/git/vim commands, not previewable) — refusing '$subcommand'" >&2
+            echo "dotfile: --dry-run has no effect on '$subcommand' (real network/git/vim commands, not previewable) — refusing" >&2
             exit 1
             ;;
     esac

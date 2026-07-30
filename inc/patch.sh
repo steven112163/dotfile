@@ -1,13 +1,24 @@
 #!/bin/bash
 # Idempotent, atomic rc-file patching: append/remove the dotfile source block
+# Uses GNU coreutils (`chmod --reference`, `mktemp -p`); this repo targets Linux only.
 
 DOTFILE_MARKER_BEGIN="dotfile: BEGIN managed block"
 DOTFILE_MARKER_END="dotfile: END managed block"
 
+# resolve_root
+# Prints $TARGET_ROOT or $HOME; errors on an explicitly-empty $TARGET_ROOT
+# instead of silently falling back (${VAR:-default} defaults on empty too).
+resolve_root() {
+    if [ "${TARGET_ROOT+set}" = set ] && [ -z "$TARGET_ROOT" ]; then
+        echo "dotfile: TARGET_ROOT is set but empty, refusing to fall back to \$HOME" >&2
+        return 1
+    fi
+    echo "${TARGET_ROOT:-$HOME}"
+}
+
 # get_line_number <pattern> <file>
-# First matching line number of <pattern> in <file>; empty if not found.
-# Never fails the caller under `set -e -o pipefail`, even when <pattern> is
-# absent (grep's exit 1 would otherwise propagate through the pipeline).
+# First matching line number, empty if absent; `|| true` keeps a no-match
+# grep from tripping `set -e -o pipefail`.
 get_line_number() {
     local pattern="$1" file="$2"
     grep -nF -- "$pattern" "$file" 2>/dev/null | head -1 | cut -d: -f1 || true
@@ -15,7 +26,7 @@ get_line_number() {
 
 # get_shell_rc_path <bash|zsh>
 get_shell_rc_path() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     case "$1" in
         bash) echo "$root/.bashrc" ;;
         zsh) echo "$root/.zshrc" ;;
@@ -27,16 +38,17 @@ get_shell_rc_path() {
 }
 
 # _marker_state <file>
-# Prints "unpatched" (no markers), "patched" (well-formed BEGIN..END block),
-# or "corrupt" (BEGIN without a matching END, or out of order) — a corrupt
-# file is refused rather than silently treated as patched or unpatched.
+# Prints "unpatched", "patched" (exactly one well-formed BEGIN..END pair),
+# or "corrupt" (missing/duplicate/out-of-order markers).
 _marker_state() {
-    local file="$1" begin end
+    local file="$1" begin end begin_count end_count
     begin="$(get_line_number "$DOTFILE_MARKER_BEGIN" "$file")"
     end="$(get_line_number "$DOTFILE_MARKER_END" "$file")"
+    begin_count="$(grep -cF -- "$DOTFILE_MARKER_BEGIN" "$file" 2>/dev/null)" || begin_count=0
+    end_count="$(grep -cF -- "$DOTFILE_MARKER_END" "$file" 2>/dev/null)" || end_count=0
     if [ -z "$begin" ] && [ -z "$end" ]; then
         echo "unpatched"
-    elif [ -n "$begin" ] && [ -n "$end" ] && [ "$end" -gt "$begin" ]; then
+    elif [ "$begin_count" -eq 1 ] && [ "$end_count" -eq 1 ] && [ "$end" -gt "$begin" ]; then
         echo "patched"
     else
         echo "corrupt"
@@ -55,13 +67,22 @@ _backup_file() {
     cp "$file" "${file}.bak.$(date +%Y%m%d%H%M%S).$$"
 }
 
+# _dquote_escape <string>
+# Escapes \, ", $, ` for embedding in a double-quoted shell/tmux string.
+_dquote_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//\$/\\\$}"
+    s="${s//\`/\\\`}"
+    printf '%s' "$s"
+}
+
 # _patch_block <file> <comment-char> <content> [validate-shell]
-# Idempotently appends a BEGIN/END-marked block to <file>, wrapping <content>
-# with <comment-char>-prefixed markers. If <validate-shell> (bash|zsh) is
-# given, the candidate file is syntax-checked with `<validate-shell> -n`
-# before the atomic mv. Preserves <file>'s original permission bits (mktemp
-# defaults to 600, which would otherwise silently tighten every patched rc
-# file). Honors DRY_RUN=1: prints a diff and writes nothing.
+# Idempotently appends a BEGIN/END-marked block, syntax-checked with
+# <validate-shell> -n if given. Preserves permission bits, writes the temp
+# file alongside <file> for an atomic same-filesystem mv. DRY_RUN=1: diffs
+# and writes nothing, not even the target directory.
 _patch_block() {
     local file="$1" comment="$2" content="$3" validate_shell="${4:-}"
 
@@ -75,8 +96,6 @@ _patch_block() {
             return 1
             ;;
     esac
-
-    mkdir -p "$(dirname "$file")"
 
     local tmp
     tmp="$(mktemp)"
@@ -94,25 +113,34 @@ _patch_block() {
         return 1
     fi
 
-    [ -f "$file" ] && chmod --reference="$file" "$tmp"
-
     if [ "${DRY_RUN:-0}" = "1" ]; then
         local diff_src="$file"
         [ -f "$diff_src" ] || diff_src=/dev/null
-        diff -u "$diff_src" "$tmp" || true
+        local diff_status=0
+        diff -u "$diff_src" "$tmp" || diff_status=$?
         rm -f "$tmp"
+        if [ "$diff_status" -gt 1 ]; then
+            echo "dotfile: diff failed while previewing $file (exit $diff_status)" >&2
+            return "$diff_status"
+        fi
         return 0
     fi
 
+    mkdir -p "$(dirname "$file")"
+    local final_tmp
+    final_tmp="$(mktemp -p "$(dirname "$file")")"
+    cat "$tmp" > "$final_tmp"
+    rm -f "$tmp"
+    [ -f "$file" ] && chmod --reference="$file" "$final_tmp"
+
     _backup_file "$file"
-    mv "$tmp" "$file"
+    mv "$final_tmp" "$file"
     echo "dotfile: patched $file"
 }
 
 # _unpatch_block <file>
-# Removes the BEGIN/END-marked block from <file>, leaving everything else
-# (and the original permission bits) untouched. Honors DRY_RUN=1: prints the
-# block that would be removed.
+# Removes the BEGIN/END block, preserving everything else. DRY_RUN=1: prints
+# the block that would be removed.
 _unpatch_block() {
     local file="$1"
 
@@ -138,7 +166,7 @@ _unpatch_block() {
 
     _backup_file "$file"
     local tmp
-    tmp="$(mktemp)"
+    tmp="$(mktemp -p "$(dirname "$file")")"
     sed "${begin},${end}d" "$file" > "$tmp"
     chmod --reference="$file" "$tmp"
     mv "$tmp" "$file"
@@ -149,25 +177,32 @@ patch_shell_rc() {
     local shell="$1"
     local rc; rc="$(get_shell_rc_path "$shell")" || return 1
     local seed="$DOTFILE_ROOT/seeds/${shell}rc"
-    _patch_block "$rc" "#" "source \"$seed\"" "$shell"
+    _patch_block "$rc" "#" "source \"$(_dquote_escape "$seed")\"" "$shell"
 }
 
 patch_vim_rc() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     local rc="$root/.vimrc"
+    local paths=(
+        "$DOTFILE_ROOT/.vim/plugin/setting.vim"
+        "$DOTFILE_ROOT/.vim/plugin/hotkeys.vim"
+        "$DOTFILE_ROOT/.vim/plugin/helpers.vim"
+        "$DOTFILE_ROOT/.vim/plugin/plug.vim"
+    )
+    local path
+    local escaped=()
+    for path in "${paths[@]}"; do
+        escaped+=("${path//\'/\'\'}")
+    done
     local content
-    content="$(printf "execute 'source ' . fnameescape('%s')\n" \
-        "$DOTFILE_ROOT/.vim/plugin/setting.vim" \
-        "$DOTFILE_ROOT/.vim/plugin/hotkeys.vim" \
-        "$DOTFILE_ROOT/.vim/plugin/helpers.vim" \
-        "$DOTFILE_ROOT/.vim/plugin/plug.vim")"
+    content="$(printf "execute 'source ' . fnameescape('%s')\n" "${escaped[@]}")"
     _patch_block "$rc" "\"" "$content"
 }
 
 patch_tmux_rc() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     local rc="$root/.tmux.conf"
-    _patch_block "$rc" "#" "source-file \"$DOTFILE_ROOT/.tmux.conf\""
+    _patch_block "$rc" "#" "source-file \"$(_dquote_escape "$DOTFILE_ROOT/.tmux.conf")\""
 }
 
 unpatch_shell_rc() {
@@ -177,11 +212,11 @@ unpatch_shell_rc() {
 }
 
 unpatch_vim_rc() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     _unpatch_block "$root/.vimrc"
 }
 
 unpatch_tmux_rc() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     _unpatch_block "$root/.tmux.conf"
 }

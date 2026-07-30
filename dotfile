@@ -22,9 +22,13 @@ Subcommands:
   uninstall  Remove patched blocks (does not remove vim-plug/TPM)
   all        Run patch, then install, then config (default)
 
+The subcommand may appear before or after the flags.
+
 Flags:
   --target-root <path>  Operate against <path> instead of $HOME (for testing)
-  --dry-run             Show what patch/uninstall would change, without writing
+  --dry-run             Preview patch/uninstall changes; refuses install/config/all
+                         since those run real network/git/vim commands that have
+                         no dry-run equivalent
 EOF
 }
 
@@ -59,63 +63,80 @@ run_status() {
     local shell rc
     for shell in bash zsh; do
         rc="$(get_shell_rc_path "$shell")"
-        if grep -qF -- "$DOTFILE_MARKER_BEGIN" "$rc" 2>/dev/null; then
-            echo "$rc: patched"
-        else
-            echo "$rc: unpatched"
-        fi
+        is_patched "$rc" && echo "$rc: patched" || echo "$rc: unpatched"
     done
     for rc in "$root/.vimrc" "$root/.tmux.conf"; do
-        if grep -qF -- "$DOTFILE_MARKER_BEGIN" "$rc" 2>/dev/null; then
-            echo "$rc: patched"
-        else
-            echo "$rc: unpatched"
-        fi
+        is_patched "$rc" && echo "$rc: patched" || echo "$rc: unpatched"
     done
 
-    if [ -f "$root/.vim/autoload/plug.vim" ]; then
-        echo "vim-plug: installed"
-    else
-        echo "vim-plug: missing"
-    fi
-    if [ -f "$root/.tmux/plugins/tpm/tpm" ]; then
-        echo "tmux TPM: installed"
-    else
-        echo "tmux TPM: missing"
-    fi
+    is_vim_plug_installed && echo "vim-plug: installed" || echo "vim-plug: missing"
+    is_tmux_tpm_installed && echo "tmux TPM: installed" || echo "tmux TPM: missing"
 }
 
-SUBCOMMAND="all"
-if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
-    SUBCOMMAND="$1"
-    shift
-fi
+subcommand=""
+target_root=""
+dry_run=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --target-root)
-            TARGET_ROOT="$2"
-            export TARGET_ROOT
+            if [ $# -lt 2 ]; then
+                echo "dotfile: --target-root requires a path" >&2
+                exit 1
+            fi
+            case "$2" in
+                -* | "")
+                    echo "dotfile: --target-root requires a non-empty path, got '${2:-}'" >&2
+                    exit 1
+                    ;;
+            esac
+            target_root="$2"
             shift 2
             ;;
         --dry-run)
-            DRY_RUN=1
-            export DRY_RUN
+            dry_run=1
             shift
             ;;
         -h | --help)
             usage
             exit 0
             ;;
-        *)
+        -*)
             echo "dotfile: unknown flag '$1'" >&2
             usage
             exit 1
             ;;
+        *)
+            if [ -n "$subcommand" ]; then
+                echo "dotfile: unexpected extra argument '$1'" >&2
+                usage
+                exit 1
+            fi
+            subcommand="$1"
+            shift
+            ;;
     esac
 done
 
-case "$SUBCOMMAND" in
+subcommand="${subcommand:-all}"
+
+if [ -n "$target_root" ]; then
+    TARGET_ROOT="$target_root"
+    export TARGET_ROOT
+fi
+
+if [ "$dry_run" = 1 ]; then
+    case "$subcommand" in
+        install | config | all)
+            echo "dotfile: --dry-run has no effect on 'install'/'config' (real network/git/vim commands, not previewable) — refusing '$subcommand'" >&2
+            exit 1
+            ;;
+    esac
+    DRY_RUN=1
+    export DRY_RUN
+fi
+
+case "$subcommand" in
     patch) run_patch ;;
     install) run_install ;;
     config) run_config ;;
@@ -127,7 +148,7 @@ case "$SUBCOMMAND" in
         run_config
         ;;
     *)
-        echo "dotfile: unknown subcommand '$SUBCOMMAND'" >&2
+        echo "dotfile: unknown subcommand '$subcommand'" >&2
         usage
         exit 1
         ;;

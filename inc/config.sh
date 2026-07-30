@@ -15,6 +15,7 @@ config_git_core_editor() {
 
 config_git_cache_timeout() {
     local root="${TARGET_ROOT:-$HOME}"
+    # 8640000s = 100 days
     HOME="$root" git config --global credential.helper "cache --timeout 8640000"
 }
 

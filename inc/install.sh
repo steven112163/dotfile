@@ -19,15 +19,20 @@ install_vim_plug() {
         return 0
     fi
 
-    mkdir -p "$(dirname "$dest")"
+    local dest_dir; dest_dir="$(dirname "$dest")"
+    mkdir -p "$dest_dir"
     local tmp
-    tmp="$(mktemp -p "$(dirname "$dest")")"
+    tmp="$(mktemp -p "$dest_dir")"
     if ! curl -fLo "$tmp" https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim; then
         echo "dotfile: failed to download vim-plug" >&2
         rm -f "$tmp"
         return 1
     fi
-    mv "$tmp" "$dest"
+    if ! mv "$tmp" "$dest"; then
+        echo "dotfile: failed to move vim-plug into place at $dest" >&2
+        rm -f "$tmp"
+        return 1
+    fi
     echo "dotfile: installed vim-plug to $dest"
 }
 
@@ -39,9 +44,10 @@ install_tmux_tpm() {
         return 0
     fi
 
-    mkdir -p "$(dirname "$dest")"
+    local dest_dir; dest_dir="$(dirname "$dest")"
+    mkdir -p "$dest_dir"
     local tmp
-    tmp="$(mktemp -d -p "$(dirname "$dest")")"
+    tmp="$(mktemp -d -p "$dest_dir")"
     if ! git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmp"; then
         echo "dotfile: failed to clone tmux TPM" >&2
         rm -rf "$tmp"
@@ -50,8 +56,12 @@ install_tmux_tpm() {
 
     local backup=""
     if [ -e "$dest" ]; then
-        backup="${dest}.bak.$$"
-        mv "$dest" "$backup"
+        backup="$(mktemp -u -p "$dest_dir" "$(basename "$dest").bak.XXXXXX")"
+        if ! mv "$dest" "$backup"; then
+            echo "dotfile: failed to back up $dest" >&2
+            rm -rf "$tmp"
+            return 1
+        fi
     fi
     if mv "$tmp" "$dest"; then
         [ -n "$backup" ] && rm -rf "$backup"

@@ -21,7 +21,7 @@ resolve_root() {
 # absent; `|| true` keeps a no-match grep from tripping `set -e -o pipefail`.
 get_line_number() {
     local pattern="$1" file="$2"
-    grep -nE -- "^. ${pattern}\$" "$file" 2>/dev/null | head -1 | cut -d: -f1 || true
+    grep -nE -- "^[#\"] ${pattern}\$" "$file" 2>/dev/null | head -1 | cut -d: -f1 || true
 }
 
 # get_shell_rc_path <bash|zsh>
@@ -44,8 +44,8 @@ _marker_state() {
     local file="$1" begin end begin_count end_count
     begin="$(get_line_number "$DOTFILE_MARKER_BEGIN" "$file")"
     end="$(get_line_number "$DOTFILE_MARKER_END" "$file")"
-    begin_count="$(grep -cE -- "^. ${DOTFILE_MARKER_BEGIN}\$" "$file" 2>/dev/null)" || begin_count=0
-    end_count="$(grep -cE -- "^. ${DOTFILE_MARKER_END}\$" "$file" 2>/dev/null)" || end_count=0
+    begin_count="$(grep -cE -- "^[#\"] ${DOTFILE_MARKER_BEGIN}\$" "$file" 2>/dev/null)" || begin_count=0
+    end_count="$(grep -cE -- "^[#\"] ${DOTFILE_MARKER_END}\$" "$file" 2>/dev/null)" || end_count=0
     if [ -z "$begin" ] && [ -z "$end" ]; then
         echo "unpatched"
     elif [ "$begin_count" -eq 1 ] && [ "$end_count" -eq 1 ] && [ "$end" -gt "$begin" ]; then
@@ -103,7 +103,11 @@ _patch_block() {
 
     local tmp
     tmp="$(mktemp)"
-    [ -f "$file" ] && cat "$file" > "$tmp"
+    if [ -f "$file" ] && ! cat "$file" > "$tmp"; then
+        echo "dotfile: failed to read $file" >&2
+        rm -f "$tmp"
+        return 1
+    fi
     {
         echo ""
         echo "$comment $DOTFILE_MARKER_BEGIN"
@@ -130,12 +134,25 @@ _patch_block() {
         return 0
     fi
 
-    mkdir -p "$(dirname "$file")"
+    local dest_dir; dest_dir="$(dirname "$file")"
+    if ! mkdir -p "$dest_dir"; then
+        echo "dotfile: failed to create directory $dest_dir" >&2
+        rm -f "$tmp"
+        return 1
+    fi
     local final_tmp
-    final_tmp="$(mktemp -p "$(dirname "$file")")"
-    cat "$tmp" > "$final_tmp"
+    final_tmp="$(mktemp -p "$dest_dir")"
+    if ! cat "$tmp" > "$final_tmp"; then
+        echo "dotfile: failed to write patched content for $file" >&2
+        rm -f "$tmp" "$final_tmp"
+        return 1
+    fi
     rm -f "$tmp"
-    [ -f "$file" ] && chmod --reference="$file" "$final_tmp"
+    if [ -f "$file" ] && ! chmod --reference="$file" "$final_tmp"; then
+        echo "dotfile: failed to preserve permissions on $file" >&2
+        rm -f "$final_tmp"
+        return 1
+    fi
 
     _backup_file "$file" || { rm -f "$final_tmp"; return 1; }
     if ! mv "$final_tmp" "$file"; then
@@ -172,11 +189,26 @@ _unpatch_block() {
         return 0
     fi
 
+    # _patch_block always inserts one blank line right before BEGIN; remove it
+    # too so repeated patch/unpatch cycles don't accumulate blank lines.
+    local del_start="$begin"
+    if [ "$begin" -gt 1 ] && [ -z "$(sed -n "$((begin - 1))p" "$file")" ]; then
+        del_start=$((begin - 1))
+    fi
+
     _backup_file "$file" || return 1
     local tmp
     tmp="$(mktemp -p "$(dirname "$file")")"
-    sed "${begin},${end}d" "$file" > "$tmp"
-    chmod --reference="$file" "$tmp"
+    if ! sed "${del_start},${end}d" "$file" > "$tmp"; then
+        echo "dotfile: failed to write unpatched content for $file" >&2
+        rm -f "$tmp"
+        return 1
+    fi
+    if ! chmod --reference="$file" "$tmp"; then
+        echo "dotfile: failed to preserve permissions on $file" >&2
+        rm -f "$tmp"
+        return 1
+    fi
     if ! mv "$tmp" "$file"; then
         echo "dotfile: failed to move unpatched content into $file" >&2
         rm -f "$tmp"

@@ -61,7 +61,7 @@ run_config() {
     local status=0
     config_git_vim_diff || status=1
     config_git_core_editor || status=1
-    config_git_cache_timeout || status=1
+    config_git_credential_cache || status=1
     config_vim_plug || status=1
     return "$status"
 }
@@ -70,15 +70,23 @@ run_status() {
     local root; root="$(resolve_root)" || return 1
     local shell rc
     for shell in bash zsh; do
-        rc="$(get_shell_rc_path "$shell")"
+        rc="$(get_shell_rc_path "$shell")" || return 1
         echo "$rc: $(_marker_state "$rc")"
     done
     for rc in "$root/.vimrc" "$root/.tmux.conf"; do
         echo "$rc: $(_marker_state "$rc")"
     done
 
-    is_vim_plug_installed && echo "vim-plug: installed" || echo "vim-plug: missing"
-    is_tmux_tpm_installed && echo "tmux TPM: installed" || echo "tmux TPM: missing"
+    if is_vim_plug_installed; then
+        echo "vim-plug: installed"
+    else
+        echo "vim-plug: missing"
+    fi
+    if is_tmux_tpm_installed; then
+        echo "tmux TPM: installed"
+    else
+        echo "tmux TPM: missing"
+    fi
 }
 
 subcommand=""

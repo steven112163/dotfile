@@ -3,8 +3,8 @@
 
 config_git_vim_diff() {
     local root; root="$(resolve_root)" || return 1
-    HOME="$root" git config --global diff.tool vimdiff
-    HOME="$root" git config --global difftool.prompt false
+    HOME="$root" git config --global diff.tool vimdiff &&
+    HOME="$root" git config --global difftool.prompt false &&
     HOME="$root" git config --global alias.vimdiff difftool
 }
 

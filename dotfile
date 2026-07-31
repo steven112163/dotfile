@@ -67,7 +67,7 @@ run_config() {
 }
 
 run_status() {
-    local root="${TARGET_ROOT:-$HOME}"
+    local root; root="$(resolve_root)" || return 1
     local shell rc
     for shell in bash zsh; do
         rc="$(get_shell_rc_path "$shell")"
@@ -151,6 +151,8 @@ case "$subcommand" in
     status) run_status ;;
     uninstall) run_uninstall ;;
     all)
+        # Dependency order: patch's .vimrc lines and install's vim-plug both
+        # must land before config's :PlugInstall. Aborts on first failure.
         run_patch
         run_install
         run_config

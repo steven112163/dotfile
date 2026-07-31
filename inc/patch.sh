@@ -108,12 +108,15 @@ _patch_block() {
         rm -f "$tmp"
         return 1
     fi
-    {
-        echo ""
-        echo "$comment $DOTFILE_MARKER_BEGIN"
-        printf '%s\n' "$content"
-        echo "$comment $DOTFILE_MARKER_END"
-    } >> "$tmp"
+    # A single printf, not a { echo; echo; printf; echo; } list: bash's compound
+    # command reports only the LAST command's exit status, so a mid-list failure
+    # (e.g. a failing printf here) would go unnoticed once followed by a
+    # succeeding echo — checking the group as a whole would not have caught it.
+    if ! printf '\n%s\n%s\n%s\n' "$comment $DOTFILE_MARKER_BEGIN" "$content" "$comment $DOTFILE_MARKER_END" >> "$tmp"; then
+        echo "dotfile: failed to write patch payload for $file" >&2
+        rm -f "$tmp"
+        return 1
+    fi
 
     if [ -n "$validate_shell" ] && ! "$validate_shell" -n "$tmp"; then
         echo "dotfile: patched $file failed syntax check, aborting" >&2
@@ -185,15 +188,23 @@ _unpatch_block() {
     end="$(get_line_number "$DOTFILE_MARKER_END" "$file")"
 
     if [ "${DRY_RUN:-0}" = "1" ]; then
-        sed -n "${begin},${end}p" "$file"
+        if ! sed -n "${begin},${end}p" "$file"; then
+            echo "dotfile: failed to preview $file" >&2
+            return 1
+        fi
         return 0
     fi
 
     # _patch_block always inserts one blank line right before BEGIN; remove it
     # too so repeated patch/unpatch cycles don't accumulate blank lines.
     local del_start="$begin"
-    if [ "$begin" -gt 1 ] && [ -z "$(sed -n "$((begin - 1))p" "$file")" ]; then
-        del_start=$((begin - 1))
+    if [ "$begin" -gt 1 ]; then
+        local prev_line
+        if ! prev_line="$(sed -n "$((begin - 1))p" "$file")"; then
+            echo "dotfile: failed to read line $((begin - 1)) of $file" >&2
+            return 1
+        fi
+        [ -z "$prev_line" ] && del_start=$((begin - 1))
     fi
 
     _backup_file "$file" || return 1

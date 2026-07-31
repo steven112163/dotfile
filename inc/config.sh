@@ -1,23 +1,33 @@
 #!/bin/bash
 # Applies git and vim-plug configuration for this environment
 
+# _git_config_global <root> <args...>
+# Runs `git config --global <args...>` fully isolated from the real user
+# environment. Git resolves the global config file from $GIT_CONFIG_GLOBAL,
+# then $HOME/.gitconfig, then $XDG_CONFIG_HOME/git/config, in that order — all
+# three must be overridden, or a value inherited from the real environment
+# (e.g. a corporate git wrapper exporting $GIT_CONFIG_GLOBAL) can still
+# redirect --target-root writes to the real git config.
+_git_config_global() {
+    local root="$1"; shift
+    HOME="$root" XDG_CONFIG_HOME="$root/.config" GIT_CONFIG_GLOBAL="$root/.gitconfig" \
+        git config --global "$@"
+}
+
 # config_git_vim_diff
 # Configures `git vimdiff` (aliased to difftool) to use vimdiff, unprompted.
 config_git_vim_diff() {
     local root; root="$(resolve_root)" || return 1
-    # XDG_CONFIG_HOME must be overridden too, not just HOME: git falls back to
-    # $XDG_CONFIG_HOME/git/config when $HOME/.gitconfig doesn't exist — without
-    # this, --target-root can silently write to the real git config instead.
-    HOME="$root" XDG_CONFIG_HOME="$root/.config" git config --global diff.tool vimdiff &&
-    HOME="$root" XDG_CONFIG_HOME="$root/.config" git config --global difftool.prompt false &&
-    HOME="$root" XDG_CONFIG_HOME="$root/.config" git config --global alias.vimdiff difftool
+    _git_config_global "$root" diff.tool vimdiff &&
+    _git_config_global "$root" difftool.prompt false &&
+    _git_config_global "$root" alias.vimdiff difftool
 }
 
 # config_git_core_editor
 # Sets git's core.editor to vim.
 config_git_core_editor() {
     local root; root="$(resolve_root)" || return 1
-    HOME="$root" XDG_CONFIG_HOME="$root/.config" git config --global core.editor vim
+    _git_config_global "$root" core.editor vim
 }
 
 # config_git_credential_cache
@@ -25,7 +35,7 @@ config_git_core_editor() {
 config_git_credential_cache() {
     local root; root="$(resolve_root)" || return 1
     # 8640000s = 100 days
-    HOME="$root" XDG_CONFIG_HOME="$root/.config" git config --global credential.helper "cache --timeout 8640000"
+    _git_config_global "$root" credential.helper "cache --timeout 8640000"
 }
 
 # config_vim_plug

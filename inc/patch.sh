@@ -1,9 +1,9 @@
 #!/bin/bash
-# Idempotent, atomic rc-file patching: append/remove the dotfile source block
+# Idempotent, atomic rc-file patching: append/remove the dotfile source block.
 # Uses GNU coreutils (`chmod --reference`, `mktemp -p`); this repo targets Linux only.
 
-DOTFILE_MARKER_BEGIN="dotfile: BEGIN managed block"
-DOTFILE_MARKER_END="dotfile: END managed block"
+readonly DOTFILE_MARKER_BEGIN="dotfile: BEGIN managed block"
+readonly DOTFILE_MARKER_END="dotfile: END managed block"
 
 # resolve_root
 # Prints $TARGET_ROOT or $HOME; errors on an explicitly-empty $TARGET_ROOT
@@ -104,7 +104,10 @@ _patch_block() {
     esac
 
     local tmp
-    tmp="$(mktemp)"
+    tmp="$(mktemp)" || {
+        echo "dotfile: failed to create temp file" >&2
+        return 1
+    }
     if [ -f "$file" ] && ! cat "$file" > "$tmp"; then
         echo "dotfile: failed to read $file" >&2
         rm -f "$tmp"
@@ -146,10 +149,16 @@ _patch_block() {
         return 0
     fi
 
+    if [ -d "$file" ]; then
+        echo "dotfile: $file is a directory, refusing to patch" >&2
+        rm -f "$tmp"
+        return 1
+    fi
+
     # $tmp (above) is scratch space for building the payload and running the
     # syntax check; final_tmp lives in $dest_dir so the closing `mv` below is
     # same-filesystem and atomic. A cross-filesystem mv silently falls back to
-    # copy+delete, which is not atomic (the round-2 bug this design avoids).
+    # copy+delete, which is not atomic.
     local dest_dir; dest_dir="$(dirname "$file")"
     if ! mkdir -p "$dest_dir"; then
         echo "dotfile: failed to create directory $dest_dir" >&2
@@ -157,7 +166,11 @@ _patch_block() {
         return 1
     fi
     local final_tmp
-    final_tmp="$(mktemp -p "$dest_dir")"
+    final_tmp="$(mktemp -p "$dest_dir")" || {
+        echo "dotfile: failed to create temp file in $dest_dir" >&2
+        rm -f "$tmp"
+        return 1
+    }
     if ! cat "$tmp" > "$final_tmp"; then
         echo "dotfile: failed to write patched content for $file" >&2
         rm -f "$tmp" "$final_tmp"
@@ -223,7 +236,10 @@ _unpatch_block() {
 
     _backup_file "$file" || return 1
     local tmp
-    tmp="$(mktemp -p "$(dirname "$file")")"
+    tmp="$(mktemp -p "$(dirname "$file")")" || {
+        echo "dotfile: failed to create temp file in $(dirname "$file")" >&2
+        return 1
+    }
     if ! sed "${del_start},${end}d" "$file" > "$tmp"; then
         echo "dotfile: failed to write unpatched content for $file" >&2
         rm -f "$tmp"

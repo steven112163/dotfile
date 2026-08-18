@@ -34,8 +34,8 @@ config_git_core_editor() {
 # Caches git credential helper entries for 100 days.
 config_git_credential_cache() {
     local root; root="$(resolve_root)" || return 1
-    # 8640000s = 100 days
-    _git_config_global "$root" credential.helper "cache --timeout 8640000"
+    local cache_timeout_seconds=8640000  # 100 days
+    _git_config_global "$root" credential.helper "cache --timeout $cache_timeout_seconds"
 }
 
 # config_vim_plug

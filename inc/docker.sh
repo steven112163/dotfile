@@ -6,5 +6,5 @@
 get_container_id() {
     local name="$1"
     [ -n "$name" ] || return 0
-    docker ps | grep "$name" | awk '{ print $1 }'
+    docker ps --filter "name=$name" --format '{{.ID}}' | head -n1
 }

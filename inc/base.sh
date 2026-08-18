@@ -18,3 +18,8 @@ if [ -z "$DOTFILE_ROOT" ]; then
 fi
 
 export DOTFILE_ROOT SHELL_NAME
+
+# Shell-agnostic inc/ files sourced by both seeds/bashrc and seeds/zshrc; the
+# single list both loop over, so it can't drift between the two entry points.
+DOTFILE_SHARED_INC="git-aliases history docker venv uv env"
+export DOTFILE_SHARED_INC

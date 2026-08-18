@@ -1,42 +1,44 @@
 #!/bin/bash
 # PATH/LD_LIBRARY_PATH registration and dedup helpers, plus self-update
 
-# registerPath <dir>
+# register_path <dir>
 # Prepends <dir> to PATH if it exists.
-registerPath() {
+register_path() {
     local dir="$1"
     if [ -z "$dir" ]; then
-        echo "dotfile: registerPath: path not specified" >&2
+        echo "dotfile: register_path: path not specified" >&2
         return 1
     fi
     if [ ! -d "$dir" ]; then
-        echo "dotfile: registerPath: $dir does not exist" >&2
+        echo "dotfile: register_path: $dir does not exist" >&2
         return 1
     fi
-    export PATH="$dir:$PATH"
+    PATH="$dir${PATH:+:$PATH}"
+    export PATH
 }
 
-# registerLibrary <dir>
+# register_library <dir>
 # Prepends <dir> to LD_LIBRARY_PATH if it exists.
-registerLibrary() {
+register_library() {
     local dir="$1"
     if [ -z "$dir" ]; then
-        echo "dotfile: registerLibrary: path not specified" >&2
+        echo "dotfile: register_library: path not specified" >&2
         return 1
     fi
     if [ ! -d "$dir" ]; then
-        echo "dotfile: registerLibrary: $dir does not exist" >&2
+        echo "dotfile: register_library: $dir does not exist" >&2
         return 1
     fi
-    export LD_LIBRARY_PATH="$dir:$LD_LIBRARY_PATH"
+    LD_LIBRARY_PATH="$dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH
 }
 
-# registerPathAndLibrary <dir>
+# register_path_and_library <dir>
 # Registers <dir>/bin to PATH and <dir>/lib to LD_LIBRARY_PATH.
-registerPathAndLibrary() {
+register_path_and_library() {
     local dir="$1"
-    registerPath "$dir/bin" || return 1
-    registerLibrary "$dir/lib" || return 1
+    register_path "$dir/bin" || return 1
+    register_library "$dir/lib" || return 1
 }
 
 _uniqueify_path_bash() {
@@ -48,6 +50,7 @@ _uniqueify_path_bash() {
     local -A seen=()
     local unique=()
     for path in "${path_array[@]}"; do
+        [ -z "$path" ] && continue
         if [ -z "${seen[$path]:-}" ]; then
             seen[$path]=1
             unique+=("$path")
@@ -60,14 +63,13 @@ _uniqueify_path_bash() {
 # shellcheck disable=SC2296 # zsh-only parameter expansion, never parsed by bash at runtime
 _uniqueify_path_zsh() {
     local env_var_name="$1"
-    local old_ifs="$IFS" path
-    IFS=':'
+    local path
     local path_array=("${(@s/:/)${(P)env_var_name}}")
-    IFS="$old_ifs"
 
     typeset -A seen
     local unique=()
     for path in "${path_array[@]}"; do
+        [ -z "$path" ] && continue
         if [ -z "${seen[$path]:-}" ]; then
             seen[$path]=1
             unique+=("$path")
@@ -78,7 +80,8 @@ _uniqueify_path_zsh() {
 }
 
 # uniqueify_path <env-var-name>
-# Prints <env-var-name>'s colon-separated value with duplicates removed.
+# Prints <env-var-name>'s colon-separated value with duplicates and empty
+# components removed.
 uniqueify_path() {
     if [ -n "$ZSH_VERSION" ]; then
         _uniqueify_path_zsh "$@"
@@ -91,24 +94,29 @@ uniqueify_path() {
 }
 
 # uniqueify_PATH
-# Dedupes PATH in place.
+# Dedupes PATH in place; leaves PATH untouched if the dedup itself fails.
 uniqueify_PATH() {
-    PATH="$(uniqueify_path PATH)"
-    export PATH
+    local new
+    new="$(uniqueify_path PATH)" && PATH="$new" && export PATH
 }
 
 # uniqueify_LD_LIBRARY_PATH
-# Dedupes LD_LIBRARY_PATH in place.
+# Dedupes LD_LIBRARY_PATH in place; leaves it untouched if the dedup fails.
 uniqueify_LD_LIBRARY_PATH() {
-    LD_LIBRARY_PATH="$(uniqueify_path LD_LIBRARY_PATH)"
-    export LD_LIBRARY_PATH
+    local new
+    new="$(uniqueify_path LD_LIBRARY_PATH)" && LD_LIBRARY_PATH="$new" && export LD_LIBRARY_PATH
 }
 
 # env_self_update
-# Fast-forward pulls this dotfile repo in place; refuses on a dirty working tree.
+# Fast-forward pulls this dotfile repo in place; refuses on a dirty working
+# tree or if DOTFILE_ROOT isn't a git repo.
 env_self_update() {
     if [ -z "$DOTFILE_ROOT" ]; then
         echo "dotfile: env_self_update: DOTFILE_ROOT not set" >&2
+        return 1
+    fi
+    if ! git -C "$DOTFILE_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        echo "dotfile: env_self_update: $DOTFILE_ROOT is not a git repo" >&2
         return 1
     fi
     if [ -n "$(git -C "$DOTFILE_ROOT" status --porcelain)" ]; then

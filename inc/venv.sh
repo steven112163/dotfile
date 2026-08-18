@@ -12,18 +12,23 @@ venv_list() {
 
 # _generate_so_aliases <root>
 # Generates a `so-<name>` alias for each <root>/<name>/bin/activate found.
-# Shared by venv.sh and uv.sh; venv.sh is sourced first so uv.sh can call it.
+# Shared by venv.sh and uv.sh; base.sh's DOTFILE_SHARED_INC lists venv before
+# uv so this definition is in place before uv.sh calls it.
 _generate_so_aliases() {
     local root="$1"
     [ -d "$root" ] || return 0
-    local venv_dir venv_name
-    for venv_dir in "$root"/*/; do
-        [ -f "${venv_dir}bin/activate" ] || continue
-        venv_name="$(basename "$venv_dir")"
-        [[ $venv_name =~ ^[A-Za-z0-9_.-]+$ ]] || continue
-        # shellcheck disable=SC2139 # intentionally expands venv_dir at definition time
-        alias "so-$venv_name=. \"${venv_dir}bin/activate\""
-    done
+    local venv_name activate_path quoted_path
+    while IFS= read -r venv_name; do
+        activate_path="$root/$venv_name/bin/activate"
+        [ -f "$activate_path" ] || continue
+        if [[ ! $venv_name =~ ^[A-Za-z0-9_.-]+$ ]]; then
+            echo "dotfile: _generate_so_aliases: skipping invalid venv name: $venv_name" >&2
+            continue
+        fi
+        quoted_path="$(printf '%q' "$activate_path")"
+        # shellcheck disable=SC2139 # intentionally expands quoted_path at definition time
+        alias "so-$venv_name=. $quoted_path"
+    done < <(find "$root" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
 }
 
 # generate_venv_aliases

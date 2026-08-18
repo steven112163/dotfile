@@ -6,7 +6,7 @@ source "$DOTFILE_ROOT/inc/settings.sh"
 source "$DOTFILE_ROOT/inc/zsh/statusbar.zsh"
 source "$DOTFILE_ROOT/inc/zsh/completion.zsh"
 
-for _dotfile_shared in ${=DOTFILE_SHARED_INC}; do
+for _dotfile_shared in "${DOTFILE_SHARED_INC[@]}"; do
     source "$DOTFILE_ROOT/inc/${_dotfile_shared}.sh"
 done
 unset _dotfile_shared

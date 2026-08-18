@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../inc/base.sh" || return
 source "$DOTFILE_ROOT/inc/settings.sh"
 source "$DOTFILE_ROOT/inc/bash/statusbar.bash"
 
-for _dotfile_shared in $DOTFILE_SHARED_INC; do
+for _dotfile_shared in "${DOTFILE_SHARED_INC[@]}"; do
     # shellcheck source=/dev/null
     source "$DOTFILE_ROOT/inc/${_dotfile_shared}.sh"
 done

@@ -43,17 +43,17 @@ register_path_and_library() {
 
 _uniqueify_path_bash() {
     local env_var_name="$1"
-    local old_ifs="$IFS" path path_array=()
+    local old_ifs="$IFS" component path_array=()
     IFS=':' read -ra path_array <<< "${!env_var_name}"
     IFS="$old_ifs"
 
     local -A seen=()
     local unique=()
-    for path in "${path_array[@]}"; do
-        [ -z "$path" ] && continue
-        if [ -z "${seen[$path]:-}" ]; then
-            seen[$path]=1
-            unique+=("$path")
+    for component in "${path_array[@]}"; do
+        [ -z "$component" ] && continue
+        if [ -z "${seen[$component]:-}" ]; then
+            seen[$component]=1
+            unique+=("$component")
         fi
     done
     local IFS=':'
@@ -61,18 +61,20 @@ _uniqueify_path_bash() {
 }
 
 # shellcheck disable=SC2296 # zsh-only parameter expansion, never parsed by bash at runtime
+# `component` (not `path`): zsh ties `path` to `PATH` as a special parameter,
+# so `local path` shadows that tie and reads back empty when env_var_name=PATH.
 _uniqueify_path_zsh() {
     local env_var_name="$1"
-    local path
+    local component
     local path_array=("${(@s/:/)${(P)env_var_name}}")
 
     typeset -A seen
     local unique=()
-    for path in "${path_array[@]}"; do
-        [ -z "$path" ] && continue
-        if [ -z "${seen[$path]:-}" ]; then
-            seen[$path]=1
-            unique+=("$path")
+    for component in "${path_array[@]}"; do
+        [ -z "$component" ] && continue
+        if [ -z "${seen[$component]:-}" ]; then
+            seen[$component]=1
+            unique+=("$component")
         fi
     done
     local IFS=':'
@@ -119,7 +121,12 @@ env_self_update() {
         echo "dotfile: env_self_update: $DOTFILE_ROOT is not a git repo" >&2
         return 1
     fi
-    if [ -n "$(git -C "$DOTFILE_ROOT" status --porcelain)" ]; then
+    local status
+    status="$(git -C "$DOTFILE_ROOT" status --porcelain)" || {
+        echo "dotfile: env_self_update: git status failed" >&2
+        return 1
+    }
+    if [ -n "$status" ]; then
         echo "dotfile: env_self_update: working tree not clean, aborting" >&2
         return 1
     fi

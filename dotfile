@@ -27,8 +27,8 @@ The subcommand may appear before or after the flags.
 Flags:
   --target-root <path>  Operate against <path> instead of $HOME (for testing)
   --dry-run             Preview patch/uninstall changes; refuses install/config/all
-                         since those run real network/git/vim commands that have
-                         no dry-run equivalent
+                         (real network/git/vim commands, no dry-run equivalent) and
+                         status (already read-only, nothing to preview)
 EOF
 }
 
@@ -145,6 +145,10 @@ if [ "$dry_run" = 1 ]; then
     case "$subcommand" in
         install | config | all)
             echo "dotfile: --dry-run has no effect on '$subcommand' (real network/git/vim commands, not previewable) — refusing" >&2
+            exit 1
+            ;;
+        status)
+            echo "dotfile: --dry-run has no effect on 'status' (already read-only) — refusing" >&2
             exit 1
             ;;
     esac

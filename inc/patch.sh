@@ -55,6 +55,8 @@ _marker_state() {
     fi
 }
 
+# _backup_file <file>
+# Copies <file> to <file>.bak.<timestamp>.<pid> if it exists; no-op otherwise.
 _backup_file() {
     local file="$1"
     [ -f "$file" ] || return 0
@@ -118,10 +120,17 @@ _patch_block() {
         return 1
     fi
 
-    if [ -n "$validate_shell" ] && ! "$validate_shell" -n "$tmp"; then
-        echo "dotfile: patched $file failed syntax check, aborting" >&2
-        rm -f "$tmp"
-        return 1
+    if [ -n "$validate_shell" ]; then
+        if ! command -v "$validate_shell" >/dev/null; then
+            echo "dotfile: $validate_shell not found, cannot validate $file" >&2
+            rm -f "$tmp"
+            return 1
+        fi
+        if ! "$validate_shell" -n "$tmp"; then
+            echo "dotfile: patched $file failed syntax check, aborting" >&2
+            rm -f "$tmp"
+            return 1
+        fi
     fi
 
     if [ "${DRY_RUN:-0}" = "1" ]; then
@@ -137,6 +146,10 @@ _patch_block() {
         return 0
     fi
 
+    # $tmp (above) is scratch space for building the payload and running the
+    # syntax check; final_tmp lives in $dest_dir so the closing `mv` below is
+    # same-filesystem and atomic. A cross-filesystem mv silently falls back to
+    # copy+delete, which is not atomic (the round-2 bug this design avoids).
     local dest_dir; dest_dir="$(dirname "$file")"
     if ! mkdir -p "$dest_dir"; then
         echo "dotfile: failed to create directory $dest_dir" >&2
@@ -187,16 +200,9 @@ _unpatch_block() {
     begin="$(get_line_number "$DOTFILE_MARKER_BEGIN" "$file")"
     end="$(get_line_number "$DOTFILE_MARKER_END" "$file")"
 
-    if [ "${DRY_RUN:-0}" = "1" ]; then
-        if ! sed -n "${begin},${end}p" "$file"; then
-            echo "dotfile: failed to preview $file" >&2
-            return 1
-        fi
-        return 0
-    fi
-
     # _patch_block always inserts one blank line right before BEGIN; remove it
-    # too so repeated patch/unpatch cycles don't accumulate blank lines.
+    # too so repeated patch/unpatch cycles don't accumulate blank lines. Computed
+    # before the DRY_RUN branch so the preview matches what the real run deletes.
     local del_start="$begin"
     if [ "$begin" -gt 1 ]; then
         local prev_line
@@ -205,6 +211,14 @@ _unpatch_block() {
             return 1
         fi
         [ -z "$prev_line" ] && del_start=$((begin - 1))
+    fi
+
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        if ! sed -n "${del_start},${end}p" "$file"; then
+            echo "dotfile: failed to preview $file" >&2
+            return 1
+        fi
+        return 0
     fi
 
     _backup_file "$file" || return 1
@@ -228,6 +242,8 @@ _unpatch_block() {
     echo "dotfile: unpatched $file"
 }
 
+# patch_shell_rc <bash|zsh>
+# Patches <bash|zsh>'s rc file to source this repo's seed for that shell.
 patch_shell_rc() {
     local shell="$1"
     local rc; rc="$(get_shell_rc_path "$shell")" || return 1
@@ -235,6 +251,8 @@ patch_shell_rc() {
     _patch_block "$rc" "#" "source \"$(_dquote_escape "$seed")\"" "$shell"
 }
 
+# patch_vim_rc
+# Patches .vimrc to source this repo's vim plugin files.
 patch_vim_rc() {
     local root; root="$(resolve_root)" || return 1
     local rc="$root/.vimrc"
@@ -254,23 +272,31 @@ patch_vim_rc() {
     _patch_block "$rc" "\"" "$content"
 }
 
+# patch_tmux_rc
+# Patches .tmux.conf to source this repo's .tmux.conf.
 patch_tmux_rc() {
     local root; root="$(resolve_root)" || return 1
     local rc="$root/.tmux.conf"
     _patch_block "$rc" "#" "source-file \"$(_dquote_escape "$DOTFILE_ROOT/.tmux.conf")\""
 }
 
+# unpatch_shell_rc <bash|zsh>
+# Removes the patched block from <bash|zsh>'s rc file.
 unpatch_shell_rc() {
     local shell="$1"
     local rc; rc="$(get_shell_rc_path "$shell")" || return 1
     _unpatch_block "$rc"
 }
 
+# unpatch_vim_rc
+# Removes the patched block from .vimrc.
 unpatch_vim_rc() {
     local root; root="$(resolve_root)" || return 1
     _unpatch_block "$root/.vimrc"
 }
 
+# unpatch_tmux_rc
+# Removes the patched block from .tmux.conf.
 unpatch_tmux_rc() {
     local root; root="$(resolve_root)" || return 1
     _unpatch_block "$root/.tmux.conf"

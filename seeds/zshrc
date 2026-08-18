@@ -5,11 +5,10 @@ source "$(dirname "${(%):-%N}")/../inc/base.sh" || return
 source "$DOTFILE_ROOT/inc/settings.sh"
 source "$DOTFILE_ROOT/inc/zsh/statusbar.zsh"
 source "$DOTFILE_ROOT/inc/zsh/completion.zsh"
-source "$DOTFILE_ROOT/inc/git-aliases.sh"
-source "$DOTFILE_ROOT/inc/history.sh"
-source "$DOTFILE_ROOT/inc/docker.sh"
-source "$DOTFILE_ROOT/inc/venv.sh"
-source "$DOTFILE_ROOT/inc/uv.sh"
-source "$DOTFILE_ROOT/inc/env.sh"
+
+for _dotfile_shared in ${=DOTFILE_SHARED_INC}; do
+    source "$DOTFILE_ROOT/inc/${_dotfile_shared}.sh"
+done
+unset _dotfile_shared
 
 [ -f "$DOTFILE_ROOT/inc/local.sh" ] && source "$DOTFILE_ROOT/inc/local.sh"

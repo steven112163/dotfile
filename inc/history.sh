@@ -1,23 +1,26 @@
 #!/bin/bash
 # Per-tmux-pane shell history with larger history size
 
+_history_size=100000
+_history_file_size=200000
+
 _configure_bash_history() {
     if [ -n "$TMUX_PANE" ]; then
         export HISTFILE="$HOME/.bash_history_${TMUX_PANE#\%}"
     fi
     shopt -s histappend
-    export HISTSIZE=100000
-    export HISTFILESIZE=200000
+    export HISTSIZE="$_history_size"
+    export HISTFILESIZE="$_history_file_size"
 }
 
 _configure_zsh_history() {
     if [ -n "$TMUX_PANE" ]; then
         export HISTFILE="$HOME/.zsh_history_${TMUX_PANE#\%}"
     fi
-    unsetopt share_history
+    unsetopt SHARE_HISTORY
     setopt APPEND_HISTORY
-    export HISTSIZE=100000
-    export SAVEHIST=200000
+    export HISTSIZE="$_history_size"
+    export SAVEHIST="$_history_file_size"
 }
 
 if [ -n "$BASH_VERSION" ]; then
@@ -25,3 +28,5 @@ if [ -n "$BASH_VERSION" ]; then
 elif [ -n "$ZSH_VERSION" ]; then
     _configure_zsh_history
 fi
+
+unset _history_size _history_file_size

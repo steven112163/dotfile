@@ -26,16 +26,11 @@ uv_venv_cd() {
 }
 
 # generate_uv_venv_aliases
-# Generates a `so-<name>` alias for each uv-managed venv under $MY_UV_VENV_ROOT.
+# Generates a `so-<name>` alias for each uv-managed venv under $MY_UV_VENV_ROOT,
+# via venv.sh's _generate_so_aliases. uv.sh is sourced after venv.sh, so a venv
+# and a uv-venv sharing a basename silently resolve to this uv alias.
 generate_uv_venv_aliases() {
-    [ -d "$MY_UV_VENV_ROOT" ] || return 0
-    local venv_dir venv_name
-    for venv_dir in "$MY_UV_VENV_ROOT"/*/; do
-        [ -f "${venv_dir}bin/activate" ] || continue
-        venv_name="$(basename "$venv_dir")"
-        # shellcheck disable=SC2139 # intentionally expands venv_dir at definition time
-        alias "so-$venv_name=. \"${venv_dir}bin/activate\""
-    done
+    _generate_so_aliases "$MY_UV_VENV_ROOT"
 }
 
 generate_uv_venv_aliases

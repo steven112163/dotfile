@@ -4,5 +4,11 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../inc/base.sh" || return
 source "$DOTFILE_ROOT/inc/settings.sh"
 source "$DOTFILE_ROOT/inc/bash/statusbar.bash"
+source "$DOTFILE_ROOT/inc/git-aliases.sh"
+source "$DOTFILE_ROOT/inc/history.sh"
+source "$DOTFILE_ROOT/inc/docker.sh"
+source "$DOTFILE_ROOT/inc/venv.sh"
+source "$DOTFILE_ROOT/inc/uv.sh"
+source "$DOTFILE_ROOT/inc/env.sh"
 
 [ -f "$DOTFILE_ROOT/inc/local.sh" ] && source "$DOTFILE_ROOT/inc/local.sh"

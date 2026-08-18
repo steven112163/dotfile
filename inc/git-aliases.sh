@@ -1,0 +1,20 @@
+#!/bin/bash
+# Curated git aliases
+
+alias g='git'
+alias ga='git add'
+alias gaa='git add --all'
+alias gs='git status'
+alias gd='git diff'
+alias gds='git diff --staged'
+alias gc='git commit'
+alias gcm='git commit -m'
+alias gca='git commit --amend'
+alias gco='git checkout'
+alias gcb='git checkout -b'
+alias gb='git branch'
+alias gl='git log --oneline -20'
+alias gp='git push'
+alias gpf='git push --force-with-lease'
+alias gpl='git pull'
+alias gst='git stash'

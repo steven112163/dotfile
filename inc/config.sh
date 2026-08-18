@@ -46,5 +46,6 @@ config_vim_plug() {
     # .vim/plugin/plug.vim expands `~` via vim's own $HOME, independent of the
     # -u vimrc path — without this, --target-root still writes plugins into the
     # real ~/.vim/plugged.
-    HOME="$root" vim -E -s -u "$root/.vimrc" +PlugInstall +qall
+    HOME="$root" XDG_CONFIG_HOME="$root/.config" GIT_CONFIG_GLOBAL="$root/.gitconfig" \
+        vim -E -s -u "$root/.vimrc" +PlugInstall +qall
 }

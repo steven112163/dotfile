@@ -26,6 +26,7 @@ The subcommand may appear before or after the flags.
 
 Flags:
   --target-root <path>  Operate against <path> instead of $HOME (for testing)
+                        Also accepts --target-root=<path>
   --dry-run             Preview patch/uninstall changes; refuses install/config/all
                          (real network/git/vim commands, no dry-run equivalent) and
                          status (already read-only, nothing to preview)
@@ -95,6 +96,14 @@ dry_run=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --target-root=*)
+            target_root="${1#--target-root=}"
+            if [ -z "$target_root" ]; then
+                echo "dotfile: --target-root requires a non-empty path, got ''" >&2
+                exit 1
+            fi
+            shift
+            ;;
         --target-root)
             if [ $# -lt 2 ]; then
                 echo "dotfile: --target-root requires a path" >&2

@@ -69,7 +69,8 @@ install_tmux_tpm() {
         echo "dotfile: failed to create temp directory in $dest_dir" >&2
         return 1
     }
-    if ! git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmp"; then
+    if ! HOME="$root" XDG_CONFIG_HOME="$root/.config" GIT_CONFIG_GLOBAL="$root/.gitconfig" \
+        git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmp"; then
         echo "dotfile: failed to clone tmux TPM" >&2
         rm -rf "$tmp"
         return 1

@@ -9,6 +9,7 @@ for _dotfile_shared in "${DOTFILE_SHARED_INC[@]}"; do
     # shellcheck source=/dev/null
     source "$DOTFILE_ROOT/inc/${_dotfile_shared}.sh" || {
         echo "dotfile: failed to source ${_dotfile_shared}.sh" >&2
+        unset _dotfile_shared
         return 1
     }
 done

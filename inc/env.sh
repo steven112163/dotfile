@@ -9,10 +9,15 @@ _require_dir() {
         echo "dotfile: $label: path not specified" >&2
         return 1
     fi
-    if [ ! -d "$dir" ]; then
+    if [ ! -e "$dir" ]; then
         echo "dotfile: $label: $dir does not exist" >&2
         return 1
     fi
+    if [ ! -d "$dir" ]; then
+        echo "dotfile: $label: $dir exists but is not a directory" >&2
+        return 1
+    fi
+    return 0
 }
 
 # register_path <dir>
@@ -35,16 +40,15 @@ register_library() {
 
 # register_path_and_library <dir>
 # Registers <dir>/bin to PATH and <dir>/lib to LD_LIBRARY_PATH.
-# Validates both directories before mutating either.
 register_path_and_library() {
     local dir="$1"
-    _require_dir "$dir/bin" register_path_and_library || return 1
-    _require_dir "$dir/lib" register_path_and_library || return 1
-    register_path "$dir/bin"
-    register_library "$dir/lib"
+    _require_dir "$dir" register_path_and_library || return 1
+    register_path "$dir/bin" && register_library "$dir/lib"
 }
 
-_uniqueify_path_bash() {
+# bash has no tied `path`/`PATH` special parameter (unlike zsh below), so
+# `local path`/`component` here is safe either way.
+_uniqueify_var_bash() {
     local env_var_name="$1"
     local old_ifs="$IFS" component path_array=()
     IFS=':' read -ra path_array <<< "${!env_var_name}"
@@ -66,7 +70,7 @@ _uniqueify_path_bash() {
 # shellcheck disable=SC2296 # zsh-only parameter expansion, never parsed by bash at runtime
 # `component` (not `path`): zsh ties `path` to `PATH` as a special parameter,
 # so `local path` shadows that tie and reads back empty when env_var_name=PATH.
-_uniqueify_path_zsh() {
+_uniqueify_var_zsh() {
     local env_var_name="$1"
     local component
     local path_array=("${(@s/:/)${(P)env_var_name}}")
@@ -94,9 +98,9 @@ uniqueify_var() {
         return 1
     fi
     if [ -n "$ZSH_VERSION" ]; then
-        _uniqueify_path_zsh "$env_var_name"
+        _uniqueify_var_zsh "$env_var_name"
     elif [ -n "$BASH_VERSION" ]; then
-        _uniqueify_path_bash "$env_var_name"
+        _uniqueify_var_bash "$env_var_name"
     else
         echo "dotfile: uniqueify_var: unsupported shell" >&2
         return 1
@@ -104,17 +108,21 @@ uniqueify_var() {
 }
 
 # uniqueify_PATH
-# Dedupes PATH in place; leaves PATH untouched if the dedup itself fails.
+# Dedupes PATH in place; leaves PATH untouched if the dedup itself fails or
+# yields nothing (an unset/empty PATH stays unset/empty, not "").
 uniqueify_PATH() {
     local new
-    new="$(uniqueify_var PATH)" && PATH="$new" && export PATH
+    new="$(uniqueify_var PATH)" || return 1
+    [ -n "$new" ] && PATH="$new" && export PATH
 }
 
 # uniqueify_LD_LIBRARY_PATH
-# Dedupes LD_LIBRARY_PATH in place; leaves it untouched if the dedup fails.
+# Dedupes LD_LIBRARY_PATH in place; leaves it untouched if the dedup fails or
+# yields nothing (an unset/empty LD_LIBRARY_PATH stays unset/empty, not "").
 uniqueify_LD_LIBRARY_PATH() {
     local new
-    new="$(uniqueify_var LD_LIBRARY_PATH)" && LD_LIBRARY_PATH="$new" && export LD_LIBRARY_PATH
+    new="$(uniqueify_var LD_LIBRARY_PATH)" || return 1
+    [ -n "$new" ] && LD_LIBRARY_PATH="$new" && export LD_LIBRARY_PATH
 }
 
 # env_self_update

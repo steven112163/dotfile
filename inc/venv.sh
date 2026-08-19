@@ -44,6 +44,8 @@ generate_so_aliases() {
         if [ -n "$existing_def" ]; then
             # `alias so-a='. path'` (bash) or `so-a='. path'` (zsh): strip
             # everything up to the first `=`, then the surrounding quotes.
+            # Doesn't undo bash's `'\''` escaping, so a root path containing
+            # a literal `'` spuriously warns on every re-source.
             existing_def="${existing_def#*=}"
             existing_def="${existing_def#\'}"
             existing_def="${existing_def%\'}"
@@ -60,7 +62,6 @@ generate_so_aliases() {
 # Generates a `so-<name>` alias for each virtualenv under $MY_VIRTUALENV_ROOT.
 generate_venv_aliases() {
     generate_so_aliases "$MY_VIRTUALENV_ROOT"
-    return 0
 }
 
 generate_venv_aliases

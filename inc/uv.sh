@@ -22,6 +22,10 @@ uv_venv_cd() {
         echo "dotfile: uv_venv_cd: usage: uv_venv_cd <name>" >&2
         return 1
     fi
+    if [[ ! $name =~ ^[A-Za-z0-9_.-]+$ ]] || [ "$name" = ".." ]; then
+        echo "dotfile: uv_venv_cd: invalid venv name: $name" >&2
+        return 1
+    fi
     if [ -z "$MY_UV_VENV_ROOT" ]; then
         echo "dotfile: uv_venv_cd: MY_UV_VENV_ROOT not set" >&2
         return 1

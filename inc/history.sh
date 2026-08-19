@@ -1,13 +1,15 @@
 #!/bin/bash
 # Per-tmux-pane shell history with larger history size
 
+# Generous defaults for long-lived tmux sessions: 100k in-memory entries,
+# 200k on disk per pane.
 _history_size=100000
 _history_file_size=200000
 
 _configure_bash_history() {
     if [ -n "$TMUX_PANE" ]; then
         # tmux pane IDs look like "%3"; strip the leading % for the filename.
-        export HISTFILE="$HOME/.bash_history_${TMUX_PANE#\%}"
+        export HISTFILE="$HOME/.bash_history_${TMUX_PANE#%}"
     fi
     shopt -s histappend
     export HISTSIZE="$_history_size"
@@ -17,7 +19,7 @@ _configure_bash_history() {
 _configure_zsh_history() {
     if [ -n "$TMUX_PANE" ]; then
         # tmux pane IDs look like "%3"; strip the leading % for the filename.
-        export HISTFILE="$HOME/.zsh_history_${TMUX_PANE#\%}"
+        export HISTFILE="$HOME/.zsh_history_${TMUX_PANE#%}"
     fi
     unsetopt SHARE_HISTORY
     setopt APPEND_HISTORY

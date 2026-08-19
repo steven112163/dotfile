@@ -40,9 +40,13 @@ register_library() {
 
 # register_path_and_library <dir>
 # Registers <dir>/bin to PATH and <dir>/lib to LD_LIBRARY_PATH.
+# Validates both directories before mutating either, so a missing lib/
+# can't leave PATH mutated on failure.
 register_path_and_library() {
     local dir="$1"
     _require_dir "$dir" register_path_and_library || return 1
+    _require_dir "$dir/bin" register_path_and_library || return 1
+    _require_dir "$dir/lib" register_path_and_library || return 1
     register_path "$dir/bin" && register_library "$dir/lib"
 }
 
@@ -50,9 +54,8 @@ register_path_and_library() {
 # `local path`/`component` here is safe either way.
 _uniqueify_var_bash() {
     local env_var_name="$1"
-    local old_ifs="$IFS" component path_array=()
+    local component path_array=()
     IFS=':' read -ra path_array <<< "${!env_var_name}"
-    IFS="$old_ifs"
 
     local -A seen=()
     local unique=()
@@ -114,6 +117,7 @@ uniqueify_PATH() {
     local new
     new="$(uniqueify_var PATH)" || return 1
     [ -n "$new" ] && PATH="$new" && export PATH
+    return 0
 }
 
 # uniqueify_LD_LIBRARY_PATH
@@ -123,6 +127,7 @@ uniqueify_LD_LIBRARY_PATH() {
     local new
     new="$(uniqueify_var LD_LIBRARY_PATH)" || return 1
     [ -n "$new" ] && LD_LIBRARY_PATH="$new" && export LD_LIBRARY_PATH
+    return 0
 }
 
 # env_self_update

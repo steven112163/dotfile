@@ -8,7 +8,8 @@ alias uvs='uv sync'
 [ -z "${MY_UV_VENV_ROOT+set}" ] && export MY_UV_VENV_ROOT="$HOME/.uv-venvs"
 
 # uv_venv_list
-# Lists uv-managed venv names under $MY_UV_VENV_ROOT.
+# Lists uv-managed venv names under $MY_UV_VENV_ROOT, via venv.sh's
+# venv_list_dirs (uv.sh is sourced after venv.sh).
 uv_venv_list() {
     venv_list_dirs "$MY_UV_VENV_ROOT"
 }

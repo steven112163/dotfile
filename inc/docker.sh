@@ -9,7 +9,8 @@ get_container_id() {
         echo "dotfile: get_container_id: usage: get_container_id <name>" >&2
         return 1
     fi
-    # Anchored: docker's `name=` filter is an unanchored substring match, so
-    # `foo` would otherwise also match a container named `foobar`.
-    docker ps --filter "name=^${name}\$" --format '{{.ID}}' | head -n1
+    # docker's `name=` filter is a regex substring match (unanchored, and
+    # metacharacters in $name like `.` aren't escaped), so it can't express
+    # exact matching; compare names literally instead.
+    docker ps --format '{{.ID}} {{.Names}}' | awk -v n="$name" '$2==n{print $1; exit}'
 }

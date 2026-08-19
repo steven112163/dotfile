@@ -33,4 +33,5 @@ elif [ -n "$ZSH_VERSION" ]; then
     _configure_zsh_history
 fi
 
+unset -f _configure_bash_history _configure_zsh_history
 unset _history_size _history_file_size
